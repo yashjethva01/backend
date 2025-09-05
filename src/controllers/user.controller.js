@@ -1,7 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
-import { User } from "../models/user.model.js";
-import { uploadToCloudinary } from "../utils/cloudinary.js";
+import User from "../models/user.model.js";
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
 const registerUser = asyncHandler(async (req, res) => {
@@ -15,9 +15,9 @@ const registerUser = asyncHandler(async (req, res) => {
     // check for user created or not
     // return response
 
-    
+
     const { fullName, email, username, password } = req.body;
-    console.log("email:", email);
+    // console.log("email:", email);
 
     // Validate required fields
     if ([fullName, email, username, password].some(field => !field || field.trim() === "")) {
@@ -29,19 +29,26 @@ const registerUser = asyncHandler(async (req, res) => {
     if (existingUser) {
         throw new ApiError(409, "User already exists with this email or username");
     }
+    // console.log("req.files:", req.files);
+
 
     // Handle file upload
     const avatarLocalPath = req.files?.avatar?.[0]?.path;
-    const coverImageLocalPath = req.files?.coverImages?.[0]?.path;
+    //const coverImageLocalPath = req.files?.coverImages?.[0]?.path;
+
+    let coverImageLocalPath;
+    if(req.files && Array.isArray(req.files.coverImages) && req.files.coverImages.length > 0){
+        coverImageLocalPath = req.files.coverImages[0].path;
+    }
 
     if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar is required");
     }
 
-    const avatar = await uploadToCloudinary(avatarLocalPath);
+    const avatar = await uploadOnCloudinary(avatarLocalPath);
     let coverImage;
     if (coverImageLocalPath) {
-        coverImage = await uploadToCloudinary(coverImageLocalPath);
+        coverImage = await uploadOnCloudinary(coverImageLocalPath);
     }
 
     if (!avatar) {
