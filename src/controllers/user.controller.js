@@ -333,4 +333,132 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, "User cover image updated successfully", user));
 })
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser, updateAccountDetails, updateUserAvatar, updateUserCoverImage };
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+    // get user id from req.params
+    // find user from db    
+    // send response
+    const {username} = req.params;
+
+    if(!username?.trim()){
+        throw new ApiError(400, "Username is required");
+    }
+    
+    const channel = await User.aggregate([
+        {
+            $match: { username: username?.toLowerCase() }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            }   
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }   
+        },
+        {
+            $addFields: {
+                subscriberCount: { $size: "$subscribers" },
+                channelsSubscribedToCount: { $size: "$subscribedTo" },
+                isSubscribed: { 
+                    $cond:{
+                        if:{$in: [req.user?._id, "$subscribers.subscriber"] },
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+
+        },
+        { 
+            $project: { 
+                fullName: 1, 
+                username: 1, 
+                email: 1,
+                avatar: 1, 
+                coverImages: 1, 
+                subscriberCount: 1, channelsSubscribedToCount: 1, isSubscribed: 1,
+                createdAt: 1, 
+                updatedAt: 1,                
+                password: 0,
+                refreshToken: 0
+
+               } }
+    ])
+
+    if(!channel || channel.length === 0){
+        throw new ApiError(404, "Channel not found with this username");
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, "Channel profile fetched successfully", channel[0]));
+
+})
+
+const getWatchHistory = asyncHandler(async (req, res) => {
+    // get user id from req.user
+    // find user from db    
+    // send response
+    const userId = req.user?._id;
+
+    const user = await User.aggregate([
+        {
+            $match: { 
+                _id: new mongoose.Types.ObjectId(req.userId)
+            }
+
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        $lookup:{
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline:[
+                                { $project: { fullName: 1, username: 1, 
+                                avatar: 1, 
+                                _id: 1 
+                            } }
+                            ]
+
+                        }
+                    },
+                    {
+                        $addFields:{
+                            owner: { 
+                                $first: "$owner"
+                             }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+    
+    if(!user || user.length === 0){
+        throw new ApiError(404, "User not found");
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, "Watch history fetched successfully", user[0].watchHistory));
+})
+
+
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser, updateAccountDetails, updateUserAvatar, updateUserCoverImage, getUserChannelProfile, getWatchHistory };
