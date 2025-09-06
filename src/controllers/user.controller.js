@@ -4,7 +4,7 @@ import User from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
-const generateAccessAndRefreshToken = async (userId){
+const generateAccessAndRefreshToken = async (userId)=>{
     try{
         const user = await User.findById(userId);
         const accessToken = user.generateAccessToken();
@@ -98,8 +98,15 @@ const loginUser = asyncHandler(async (req, res) => {
     //password check
     // access token, refresh token
     // send cookie
+    console.log("req.body:", req.body);
+    if (!req.body) {
+        return res.status(400).json({ error: "Request body is missing. Check your Content-Type and request format." });
+    }
+
     const {email, username, password} = req.body;
-    if(!usename || !email){
+    console.log(email);
+
+    if(!username && !email){
         throw new ApiError(400, "Username or email required");
     }
 
